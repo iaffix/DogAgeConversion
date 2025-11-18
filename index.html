@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狗狗年齡換算器 - 簡約版</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 設定網頁整體字體為 Inter，以確保美觀和跨平台一致性 */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            /* 輕盈的背景色 */
+        }
+
+        /* 自定義按鈕樣式：使用簡約的靛藍色作為主色 */
+        .btn-primary {
+            transition: all 0.2s;
+            /* 使用更細膩的陰影 */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            /* 提升陰影深度，增加懸浮感 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            background-color: #3b509d;
+            /* 稍微變深 */
+        }
+
+        /* 讓圖片在小螢幕上也能良好顯示 */
+        #dogImage {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<!-- 身體置中設定不變，確保RWD下所有內容置中 -->
+
+<body class="p-4 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-lg bg-white p-6 md:p-10 rounded-xl shadow-lg border border-gray-200">
+        <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-4">狗狗年齡換算器</h1>
+        <p class="text-center text-gray-500 mb-8 text-sm">人類年齡換算公式：<code
+                class="bg-gray-100 px-2 py-1 rounded text-gray-700 font-mono">16 ln(狗狗年齡) + 31</code></p>
+
+        <!-- 圖片區塊，置中顯示 -->
+        <div class="flex justify-center mb-8">
+            <img id="dogImage" src="https://hackmd.io/_uploads/Hyc4usZlWe.png" alt="一隻可愛的狗狗圖片"
+                class="rounded-xl shadow-md transition duration-300 hover:shadow-xl max-h-60 object-cover"
+                onerror="this.onerror=null; this.src='https://placehold.co/300x200/e0e0e0/555555?text=圖片載入失敗';">
+        </div>
+
+        <!-- 輸入區塊 -->
+        <div class="mb-6">
+            <label for="birthDate" class="block text-base font-medium text-gray-700 mb-2">
+                請輸入狗狗的出生日期 (西元)
+            </label>
+            <input type="date" id="birthDate"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-lg transition duration-150"
+                aria-label="狗狗出生日期">
+        </div>
+
+        <!-- 按鈕區塊 -->
+        <button id="calculateBtn"
+            class="w-full btn-primary bg-indigo-600 text-white font-semibold py-3 rounded-xl mb-6 text-lg tracking-wider">
+            立即換算人類年齡
+        </button>
+
+        <!-- 訊息/錯誤顯示區 -->
+        <div id="messageBox" class="text-center text-red-600 mb-4 hidden font-medium"></div>
+
+        <!-- 結果顯示區塊 -->
+        <div id="result" class="mt-6 pt-6 border-t border-gray-100 hidden">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4 text-center">換算結果</h2>
+            <div class="space-y-3">
+                <!-- 狗狗實際年齡 (簡約風格，使用邊框和純白背景) -->
+                <div class="flex justify-between items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <span class="text-gray-600 font-medium">狗狗實際年齡 (年)</span>
+                    <span id="dogAge" class="text-indigo-600 font-bold text-2xl"></span>
+                </div>
+                <!-- 換算人類年齡 -->
+                <div class="flex justify-between items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <span class="text-gray-600 font-medium">換算人類年齡 (約)</span>
+                    <span id="humanAge" class="text-gray-800 font-extrabold text-3xl"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const birthDateInput = document.getElementById('birthDate');
+            const calculateBtn = document.getElementById('calculateBtn');
+            const resultDiv = document.getElementById('result');
+            const dogAgeSpan = document.getElementById('dogAge');
+            const humanAgeSpan = document.getElementById('humanAge');
+            const messageBox = document.getElementById('messageBox');
+
+            const LOCAL_STORAGE_KEY = 'lastDogBirthDate';
+
+            /**
+             * 顯示訊息 (例如錯誤或警告)
+             * @param {string} message 要顯示的文字
+             * @param {string} type 訊息類型 ('error' 或 'info')
+             */
+            function showMessage(message, type = 'error') {
+                messageBox.textContent = message;
+                // 根據類型調整顏色
+                const colorClass = type === 'error' ? 'text-red-600' : 'text-indigo-600';
+                messageBox.className = `text-center mb-4 ${colorClass} font-medium block`;
+                resultDiv.classList.add('hidden'); // 隱藏結果
+            }
+
+            /**
+             * 隱藏訊息區
+             */
+            function hideMessage() {
+                messageBox.classList.add('hidden');
+            }
+
+            /**
+             * 從 localStorage 載入上次儲存的日期
+             * 注意：這裡僅載入日期，不自動觸發計算。
+             */
+            function loadSavedDate() {
+                const savedDate = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (savedDate) {
+                    birthDateInput.value = savedDate;
+                    // 僅載入日期，等待使用者點擊按鈕才計算
+                }
+            }
+
+            /**
+             * 將日期儲存到 localStorage
+             * @param {string} dateString 要儲存的日期字串
+             */
+            function saveDate(dateString) {
+                localStorage.setItem(LOCAL_STORAGE_KEY, dateString);
+            }
+
+            /**
+             * 主要計算邏輯
+             */
+            function calculateAge() {
+                hideMessage();
+                const birthDateValue = birthDateInput.value;
+
+                if (!birthDateValue) {
+                    showMessage("請選擇狗狗的出生日期。", 'info');
+                    return;
+                }
+
+                // 將輸入的日期字串轉換為 Date 物件
+                const birthDate = new Date(birthDateValue);
+                const today = new Date();
+
+                // 檢查日期是否有效或在未來
+                if (isNaN(birthDate.getTime()) || birthDate >= today) {
+                    showMessage("請輸入一個有效的且不晚於今天的出生日期。");
+                    return;
+                }
+
+                // 計算兩個日期之間的毫秒差
+                const diffMs = today.getTime() - birthDate.getTime();
+                // 轉換為年（使用 365.25 天考慮閏年）
+                const MILLISECONDS_PER_YEAR = 1000 * 60 * 60 * 24 * 365.25;
+                const dogAgeYears = diffMs / MILLISECONDS_PER_YEAR;
+
+                // 狗狗年齡必須大於0才能計算對數
+                if (dogAgeYears <= 0) {
+                    showMessage("狗狗的年齡必須大於 0 歲。");
+                    return;
+                }
+
+                // --- 應用計算公式：human_age = 16 ln(dog_age) + 31 ---
+                // Math.log(x) 是自然對數 (ln)
+                const humanAge = 16 * Math.log(dogAgeYears) + 31;
+
+                // 檢查結果是否為有效數字
+                if (isNaN(humanAge)) {
+                    showMessage("計算結果無效，請確保輸入的日期正確。");
+                    return;
+                }
+
+                // 儲存日期
+                saveDate(birthDateValue);
+
+                // 更新結果顯示
+                dogAgeSpan.textContent = dogAgeYears.toFixed(2); // 顯示到小數點後兩位
+                humanAgeSpan.textContent = Math.max(1, Math.round(humanAge)); // 確保至少是 1 歲，並四捨五入到整數
+
+                resultDiv.classList.remove('hidden'); // 顯示結果區塊
+            }
+
+            // --- 事件監聽器和初始化 ---
+
+            // 1. 載入儲存的日期
+            loadSavedDate();
+
+            // 2. 監聽計算按鈕點擊
+            // 點擊按鈕時才呼叫計算邏輯
+            calculateBtn.addEventListener('click', calculateAge);
+
+            // 3. 移除日期變動時的即時監聽，符合要求：只在按下按鈕後顯示結果
+            // birthDateInput.addEventListener('change', () => calculateAge(false)); // 註釋或移除此行
+        });
+    </script>
+</body>
+
+</html>
